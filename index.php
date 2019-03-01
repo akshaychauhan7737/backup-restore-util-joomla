@@ -196,6 +196,11 @@ class Controller
                 if (!isset($backup_data_for_xml['parent_menu_array']["parent_" . $params['aliasoptions']])) {
                     $parent_alias_menu = JoomlaHelper::getMenuWithID($params['aliasoptions']);
                     $backup_data_for_xml['parent_menu_array']["parent_" . $params['aliasoptions']] = $parent_alias_menu;
+                    
+                    if(!isset($backup_data_for_xml['menu_type_array']['menu_type_' . $parent_alias_menu['menutype']])){
+                        $alias_menu_type = JoomlaHelper::getMenuTypeWithMenutype($parent_alias_menu['menutype']);
+                        $backup_data_for_xml['menu_type_array']['menu_type_' . $parent_alias_menu['menutype']] = $alias_menu_type;
+                    }
                 }
             }
 
@@ -600,9 +605,6 @@ class JoomlaHelper
         }
     }
 
-    public static function remove_and_insert(){
-
-    }
     public static function insert_menu_recursively($menu_data, $data)
     {
         $menu_data = (array) $menu_data;
@@ -616,7 +618,7 @@ class JoomlaHelper
                     $menu_data['template_style_id'] = $template['id'];
                 } else {
                     echo "<br>-----------------<br>";
-                    echo "Please install template : " . $template_style['template'];
+                    echo "<div>ERR: Please install template : " . $template_style['template'];
                     return false;
                 }
             }
@@ -629,7 +631,7 @@ class JoomlaHelper
                     $menu_to_insert = $data['menu']->{'menu_' . $params->aliasoptions};
                 } else {
                     echo '<br>-------------<br>';
-                    echo "Menu not included: " . $params->aliasoptions;
+                    echo "ERR: Menu not included: " . $params->aliasoptions;
                     return false;
                 }
 
@@ -651,7 +653,7 @@ class JoomlaHelper
                 $parent_id = self::insert_menu_recursively($data['menu']->{'menu_' . $parent_id_search}, $data);
             } else {
                 echo '<br>-------------<br>';
-                echo "Menu not included: " . $parent_id_search;
+                echo "ERR: Menu not included: " . $parent_id_search;
                 return false;
             }
 
@@ -664,7 +666,7 @@ class JoomlaHelper
             
             if (!self::find_menu_type(JoomlaHelper::FIND_WITH_MENU_TYPE, $data['menu_type_array']->{'menu_type_' . $menu_data['menutype']})) {
                 echo '<br>-------------<br>';
-                echo "First Create a menu-type: " . $menu_data['menutype'];
+                echo "ERR: First Create a menu-type: " . $menu_data['menutype'];
                 return false;
             }
 
@@ -696,19 +698,23 @@ class JoomlaHelper
                 }else return false;
             }
         }else {
-            echo "NOT INCUDED asset_id :".$data['assets'][$asset_id];
+            echo "ERR: NOT INCLUDED asset_id :".$data['assets'][$asset_id];
             return false;
         }
     }
     public static function insert_module_menu($module_id,$module_array,$data){
         foreach($module_array as $menu_id){
             $menu = (array)$data['modules_menu_data']->{$menu_id};
-            $get_menu_by_id = self::find_menu(self::FIND_WITH_ALIAS,$menu['alias']);
-            if($get_menu_by_id){
-                self::insert_module_menu_data($module_id,$get_menu_by_id);
+            $menu_data = self::find_menu(self::FIND_WITH_ALIAS,$menu['alias']);
+            if($menu_data){
+                if(self::insert_module_menu_data($module_id,$menu_data) == false){
+                    echo "<br>------------<br>";
+                    echo "ERR: _modules_menu : cannot be inserted data to table : ";
+                    return false;
+                }
             }else{
                 echo "<br>------------<br>";
-                echo "Menu not moved with alias: ".$menu['alias'];
+                echo "ERR: Menu not moved with alias: ".$menu['alias'];
                 return false;
             }
             
@@ -716,7 +722,10 @@ class JoomlaHelper
     }
 
     public static function insert_module_menu_data($module_id,$get_menu_by_id){
-        
+        $table_name = $GLOBALS['table_prefix'].'_modules_menu';
+        $query = "INSERT INTO `".$table_name."` set moduleid = ".$module_id.", menuid=".$get_menu_by_id['id'];
+        $result = DB::query($GLOBALS['conn'], $query);
+        return mysqli_insert_id($GLOBALS['conn']);
     }
 
     public static function insert_module_recursively($module_data, $data){
